@@ -1,6 +1,7 @@
 package Controller;
 
 import java.sql.*;
+import java.util.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -73,15 +74,30 @@ public class SocialMediaController {
                 }else {
                     ctx.status(200);
                     addMessage(message);
-                    System.out.println("in http msg: "+ findIDMessage(message));
-                    viewDatabase();
+                    // System.out.println("in http msg: "+ findIDMessage(message));
+                    // viewDatabase();
 
                     message.setMessage_id(findIDMessage(message));
                     ctx.json(message);
                 }
             }
         });
+        // get all messages
+        app.get("messages", ctx -> {
+            ctx.status(200);
+            ctx.json(getAllMessages());
+        });
 
+        // retrieve msg by id
+        app.get("messages/{message_id}",ctx -> {
+            String mID = ctx.pathParam("message_id");
+            // System.out.println("mid: "+ mID);
+            Message messageFound = findMessageByID(Integer.parseInt(mID));
+            if(messageFound!=null){
+                ctx.json(messageFound);
+                ctx.status(200);
+            }
+        });
         return app;
     }
 
@@ -98,7 +114,19 @@ public class SocialMediaController {
                 e.printStackTrace();
             }
         }
-    
+    private Message findMessageByID(int message_id){
+        try(Connection conn = ConnectionUtil.getConnection()){
+            PreparedStatement ps = conn.prepareStatement("SELECT * From message where message_id=?;");
+            ps.setInt(1,message_id);
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()){
+                return new Message(rs.getInt("message_id"), rs.getInt("posted_by"),rs.getString("message_text"),rs.getLong("time_posted_epoch"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
     private int findIDMessage(Message message) {
         try(Connection conn = ConnectionUtil.getConnection()){
             PreparedStatement ps = conn.prepareStatement("select message_id from message where posted_by=? and time_posted_epoch=? and message_text=?;");
@@ -109,7 +137,7 @@ public class SocialMediaController {
             // System.out.println(message.getTime_posted_epoch());
             ResultSet rs = ps.executeQuery();
             while(rs.next()) {
-                System.out.println("findIDMsg: "+rs.getString("message_id"));
+                // System.out.println("findIDMsg: "+rs.getString("message_id"));
                 return rs.getInt("message_id");
             }
 
@@ -130,7 +158,20 @@ public class SocialMediaController {
         }
         return false;
     }
-
+    private ArrayList<Message> getAllMessages() {
+        ArrayList<Message> messages = new ArrayList<Message>();
+        try(Connection conn = ConnectionUtil.getConnection()){
+            PreparedStatement ps = conn.prepareStatement("select * from message;");
+            ResultSet rs = ps.executeQuery();
+            while(rs.next()) {
+                Message message = new Message(rs.getInt("message_id"), rs.getInt("posted_by"), rs.getString("message_text"), rs.getLong("time_posted_epoch"));
+                messages.add(message);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return messages;
+    }
 
     // ====================Accounts vvvvvvvvv ======================
     // add account to database
