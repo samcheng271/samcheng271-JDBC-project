@@ -73,9 +73,10 @@ public class SocialMediaController {
                 }else {
                     ctx.status(200);
                     addMessage(message);
-                    System.out.println("in http msg: "+ findIDMessage(userN));
+                    System.out.println("in http msg: "+ findIDMessage(message));
                     viewDatabase();
-                    message.setMessage_id(findIDMessage(userN));
+
+                    message.setMessage_id(findIDMessage(message));
                     ctx.json(message);
                 }
             }
@@ -84,19 +85,54 @@ public class SocialMediaController {
         return app;
     }
 
-    // add message to database
-    private void addMessage(Message message) {
+    // ================Messages vvvvvvvvv ========================
+        // add message to database
+        private void addMessage(Message message) {
+            try(Connection conn = ConnectionUtil.getConnection()){
+                PreparedStatement ps = conn.prepareStatement("insert into message (message_text,posted_by,time_posted_epoch) values (?,?,?);");
+                ps.setString(1, message.getMessage_text());
+                ps.setInt(2, message.getPosted_by());
+                ps.setLong(3, message.getTime_posted_epoch());
+                ps.executeUpdate();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+    
+    private int findIDMessage(Message message) {
         try(Connection conn = ConnectionUtil.getConnection()){
-            PreparedStatement ps = conn.prepareStatement("insert into message (message_text,posted_by) values (?,?);");
-            ps.setString(1, message.getMessage_text());
-            ps.setInt(2, message.getPosted_by());
-            // ps.set(2, message.getTime_posted_epoch());
-            ps.executeUpdate();
+            PreparedStatement ps = conn.prepareStatement("select message_id from message where posted_by=? and time_posted_epoch=? and message_text=?;");
+            ps.setInt(1, message.getPosted_by());
+            ps.setLong(2, message.getTime_posted_epoch());
+            ps.setString(3, message.getMessage_text());
+            // System.out.println(message.getPosted_by());
+            // System.out.println(message.getTime_posted_epoch());
+            ResultSet rs = ps.executeQuery();
+            while(rs.next()) {
+                System.out.println("findIDMsg: "+rs.getString("message_id"));
+                return rs.getInt("message_id");
+            }
+
         } catch (SQLException e) {
             e.printStackTrace();
         }
+        return -1;
+    }
+    private boolean MessengerExists(int posted_by) {
+        try(Connection conn = ConnectionUtil.getConnection()){
+            PreparedStatement ps = conn.prepareStatement("select * from message where posted_by = ?;");
+            ps.setInt(1, posted_by);  
+            ResultSet rs = ps.executeQuery();
+            // System.out.println("checker: "+rs);
+            return rs.next();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
     }
 
+
+    // ====================Accounts vvvvvvvvv ======================
     // add account to database
     private void addAccount(String username, String password) {
         try(Connection conn = ConnectionUtil.getConnection()){
@@ -154,35 +190,7 @@ public class SocialMediaController {
         }
         return null;
     }
-    // ================Message vvvvvvvvv ========================
-    private int findIDMessage(Message message) {
-        try(Connection conn = ConnectionUtil.getConnection()){
-            PreparedStatement ps = conn.prepareStatement("select message_id from message where posted_by=? and time_posted_epoch=?;");
-            ps.setInt(1, message.getPosted_by());
-            ps.setLong(2, message.getTime_posted_epoch());
-            ResultSet rs = ps.executeQuery();
-            while(rs.next()) {
-                // System.out.println(rs.getString("account_id"));
-                return rs.getInt("message_id");
-            }
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return -1;
-    }
-    private boolean MessengerExists(int posted_by) {
-        try(Connection conn = ConnectionUtil.getConnection()){
-            PreparedStatement ps = conn.prepareStatement("select * from message where posted_by = ?;");
-            ps.setInt(1, posted_by);  
-            ResultSet rs = ps.executeQuery();
-            // System.out.println("checker: "+rs);
-            return rs.next();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return false;
-    }
+    
     // view all values in database
     private void viewDatabase() {
         try(Connection conn = ConnectionUtil.getConnection()){
@@ -192,7 +200,9 @@ public class SocialMediaController {
             while(rs.next()) {
                 System.out.println("in ViewDB, msgID: "+rs.getInt("message_id")+
                 " postedBy: "+rs.getInt("posted_by")+
-                " text: "+rs.getString("message_text"));
+                " text: "+rs.getString("message_text")+
+                " time: "+rs.getLong("time_posted_epoch")
+                );
             }
         } catch (SQLException e) {
             e.printStackTrace();
