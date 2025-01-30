@@ -98,22 +98,93 @@ public class SocialMediaController {
                 ctx.status(200);
             }
         });
+
+        // delete msg by id
+        app.delete("messages/{message_id}", ctx -> {
+            String mID = ctx.pathParam("message_id");
+            // Message messageFound = findMessageByID(Integer.parseInt(mID));
+            // don't need to check since delete does nothing if row doesn't exist
+            Message toBeDeleted = findMessageByID(Integer.parseInt(mID));
+            if(deleteMessage(Integer.parseInt(mID))){
+                // ctx.status(200);
+                ctx.json(toBeDeleted);
+            }
+            // ctx.json(Integer.parseInt(mID));
+            ctx.status(200);
+        });
+
+        // update msg by id
+        app.patch("messages/{message_id}", ctx -> {
+            String mID = ctx.pathParam("message_id");
+            String json = ctx.body();
+            Message newMessageTxt = objectMapper.readValue(json, Message.class);
+            // Message messageFound = findMessageByID(Integer.parseInt(mID));
+            // don't need to check since delete does nothing if row doesn't exist
+            if(updateMessage(Integer.parseInt(mID),newMessageTxt.getMessage_text())==true){
+                ctx.status(200);
+                ctx.json(findMessageByID(Integer.parseInt(mID)));
+
+            }else{
+                ctx.status(400);
+            }
+        });
         return app;
     }
 
     // ================Messages vvvvvvvvv ========================
         // add message to database
-        private void addMessage(Message message) {
+    private void addMessage(Message message) {
+        try(Connection conn = ConnectionUtil.getConnection()){
+            PreparedStatement ps = conn.prepareStatement("insert into message (message_text,posted_by,time_posted_epoch) values (?,?,?);");
+            ps.setString(1, message.getMessage_text());
+            ps.setInt(2, message.getPosted_by());
+            ps.setLong(3, message.getTime_posted_epoch());
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private boolean deleteMessage(int message_id){
+        try(Connection conn = ConnectionUtil.getConnection()){
+            PreparedStatement ps = conn.prepareStatement("Delete from message where message_id=?;");
+            ps.setInt(1, message_id);
+            int check = ps.executeUpdate();
+            if(check>0){
+                return true;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+    private boolean updateMessage(int message_id,String newMessageTxt){
+        if (newMessageTxt.length()<255 && !newMessageTxt.isEmpty()){
             try(Connection conn = ConnectionUtil.getConnection()){
-                PreparedStatement ps = conn.prepareStatement("insert into message (message_text,posted_by,time_posted_epoch) values (?,?,?);");
-                ps.setString(1, message.getMessage_text());
-                ps.setInt(2, message.getPosted_by());
-                ps.setLong(3, message.getTime_posted_epoch());
-                ps.executeUpdate();
+                PreparedStatement ps = conn.prepareStatement("Update message set message_text=? where message_id=?;");
+                // ps.setInt(1, message.getPosted_by());
+                ps.setString(1, newMessageTxt);
+                ps.setInt(2,message_id);
+                int rs = ps.executeUpdate();
+
+                if(rs>0){
+                    // Message m = findMessageByID(message_id);
+
+                    // if(m.getMessage_text().length()>255 || m.getMessage_text().isEmpty()){
+                        // return false;
+                    // } else{
+                    return true;
+                    // }
+                } else{
+                    return false;
+                }
+
             } catch (SQLException e) {
                 e.printStackTrace();
             }
         }
+        return false;
+    }
     private Message findMessageByID(int message_id){
         try(Connection conn = ConnectionUtil.getConnection()){
             PreparedStatement ps = conn.prepareStatement("SELECT * From message where message_id=?;");
