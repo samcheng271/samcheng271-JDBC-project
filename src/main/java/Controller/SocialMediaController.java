@@ -128,6 +128,15 @@ public class SocialMediaController {
                 ctx.status(400);
             }
         });
+
+        // get all messages from user's account id
+        app.get("accounts/{account_id}/messages",ctx ->{
+            String aID = ctx.pathParam("account_id");
+            ArrayList<Message> allMsgs = getAllMessagesFromAUser(Integer.parseInt(aID));
+            ctx.status(200);
+            ctx.json(allMsgs);
+        });
+
         return app;
     }
 
@@ -168,13 +177,7 @@ public class SocialMediaController {
                 int rs = ps.executeUpdate();
 
                 if(rs>0){
-                    // Message m = findMessageByID(message_id);
-
-                    // if(m.getMessage_text().length()>255 || m.getMessage_text().isEmpty()){
-                        // return false;
-                    // } else{
                     return true;
-                    // }
                 } else{
                     return false;
                 }
@@ -229,6 +232,22 @@ public class SocialMediaController {
         }
         return false;
     }
+    private ArrayList<Message> getAllMessagesFromAUser(int acc) {
+        ArrayList<Message> messages = new ArrayList<Message>();
+        try(Connection conn = ConnectionUtil.getConnection()){
+            PreparedStatement ps = conn.prepareStatement("select * from message where posted_by=?;");
+            ps.setInt(1,acc);
+
+            ResultSet rs = ps.executeQuery();
+            while(rs.next()) {
+                Message message = new Message(rs.getInt("message_id"), rs.getInt("posted_by"), rs.getString("message_text"), rs.getLong("time_posted_epoch"));
+                messages.add(message);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return messages;
+    }
     private ArrayList<Message> getAllMessages() {
         ArrayList<Message> messages = new ArrayList<Message>();
         try(Connection conn = ConnectionUtil.getConnection()){
@@ -243,7 +262,6 @@ public class SocialMediaController {
         }
         return messages;
     }
-
     // ====================Accounts vvvvvvvvv ======================
     // add account to database
     private void addAccount(String username, String password) {
